@@ -1,6 +1,7 @@
 import os, sys, re, json, mammoth
 from ebooklib import epub
-from parsing_libraries import process_html, process_html_with_blockquotes, split_chapters, get_title_from_html, slugify, blacklist, whitelist, restore_footers_2, get_footer_file_name
+from parsing_libraries2 import process_html, process_html_with_blockquotes, split_chapters, get_title_from_html, slugify, blacklist, whitelist, restore_footers, get_footer_file_name
+from standard_open_files_as_html import open_file_as_xhtml
 
 def safe_read_file(f):
     """
@@ -72,17 +73,18 @@ files = json_data['files']
 all_html = []
 #titles = []
 for f in files:
-    open_file = open(f, 'rb')
-    html_form = mammoth.convert_to_html(open_file).value
+    #open_file = open(f, 'rb')
+    #html_form = mammoth.convert_to_html(open_file).value
+    html_form = open_file_as_xhtml(f)
     if(json_data.get('blockquotes_enabled', True)):
         html_form = process_html_with_blockquotes(html_form)
     all_html.extend(split_chapters(process_html(html_form))) #use process_html_with_blockquotes?
-    open_file.close()
+    #open_file.close()
 
 #loose html files can be added that will not be in table of contents
 intro_loose = []
 outro_loose = []
-footer_html = restore_footers_2(all_html)
+footer_html = restore_footers()
 if(cover_page is not None and json_data.get('cover_page_enabled', True)):
     intro_loose.append(cover_page)
 def create_html_item(entry):
