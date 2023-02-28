@@ -1,0 +1,13 @@
+{
+	"authors": ["John McAuthor"],
+	"title" : "Example",
+	"id": "1234567890",
+	"output_file_name" : "Example.epub",
+	"files": [
+	"./example1.odt",
+	"./example2.odt"
+	],
+	"whitelist" : [],
+	"blacklist": []
+	
+}

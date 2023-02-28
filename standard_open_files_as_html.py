@@ -7,7 +7,7 @@ from odf.namespaces import *
 from bs4 import BeautifulSoup
 import mammoth
 import os, sys
-from parsing_libraries2 import HTML_PARSER
+from parsing_libraries import HTML_PARSER
 class SimpleODF2XHTML(ODF2XHTML):
     def __init__(self, generate_css=False, embedable=False):
         super().__init__(generate_css, embedable)
@@ -22,8 +22,13 @@ class SimpleODF2XHTML(ODF2XHTML):
         #my code
         self.notebody.remove('</p>')
         self.notebody.remove('<p>')
-        self.notebody.remove('<span>')
-        self.notebody.remove('</span>')
+        try:
+            self.notebody.remove('<span>')
+            self.notebody.remove('</span>')
+        except ValueError as ve:
+            pass #it seems these useless spans are only in there if its converted from docx
+            #print(ve)
+            #print(self.notebody)
         #end my code
         self.notedict[self.currentnote]['body'] = ''.join(self.notebody)
         self.notebody = ''
@@ -109,7 +114,9 @@ class SimpleODF2XHTML(ODF2XHTML):
             #span tag, so might need some style TO DO
             #htmlattrs = attrs
             pass
-        self.opentag(tag, htmlattrs)
+        #not saving formating so spans are useless
+        if(tag != 'span'):
+            self.opentag(tag, htmlattrs)
         self.purgedata()
     def e_text_span_convert(self, tag, attrs):
         """ 
@@ -134,18 +141,76 @@ class SimpleODF2XHTML(ODF2XHTML):
             tag = 'em'
         elif(is_bold):
             tag = 'strong'
-        self.closetag(tag, False)
+        if(tag != 'span'):
+           self.closetag(tag, False)
         self.purgedata()
+    def s_text_p(self, tag, attrs):
+        """ have to look for bold and italic because 
+        some p tags might just have that in the css, which we're throwing away
+        """
+        htmlattrs = {}
+        #print(attrs)
+        specialtag = "p"
+        c = attrs.get( (TEXTNS,'style-name'), None)
+        font_weight, font_style = '', ''
+        if c:
+            font_weight, font_style = self.get_font_weight_and_style(c, '.P-')
+            c = c.replace(".","_")
+            specialtag = special_styles.get("P-"+c)
+            if specialtag is None:
+                specialtag = 'p'
+                if self.generate_css:
+                    htmlattrs['class'] = "P-%s" % c
+        self.opentag(specialtag, htmlattrs)
+        if(font_weight == 'bold'):
+            self.opentag('strong', {})
+        if(font_style == 'italic'):
+            self.opentag('em', {})
+        self.purgedata()
+
+    def e_text_p(self, tag, attrs):
+        """ End Paragraph
+        """
+        specialtag = "p"
+        c = attrs.get( (TEXTNS,'style-name'), None)
+        font_weight, font_style = '', ''
+        if c:
+            font_weight, font_style = self.get_font_weight_and_style(c, '.P-')
+            c = c.replace(".","_")
+            specialtag = special_styles.get("P-"+c)
+            if specialtag is None:
+                specialtag = 'p'
+        self.writedata()
+        if(font_style == 'italic'):
+            self.closetag('em', {})
+        if(font_weight == 'bold'):
+            self.closetag('strong', {})
+        self.closetag(specialtag)
+        self.purgedata()
+    def get_font_weight_and_style(self, style_name, prefix):
+        c = style_name
+        #.S-
+        #print(self.styledict)
+        item_style = self.styledict.get(prefix +  c, {})
+        #print(self.styledict.keys())
+        font_style = item_style.get(('urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0', 'font-style'))
+        font_weight = item_style.get(('urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0', 'font-weight'))
+        return font_weight, font_style
 
 def open_odt(f_name):
     converter = SimpleODF2XHTML()
     xhtml = converter.odf2xhtml(f_name)
     soup = BeautifulSoup(xhtml, HTML_PARSER)
     headers = soup.find_all('h1')
+    #Sometimes the headers are wrapped strangely
+    #if you converted from a different file format, for instance
     for h in headers:
-        h.a.extract()#remove a tag
-        h.parent.unwrap() #remove li tag
-        h.parent.unwrap() #remove ul tag
+        if(hasattr(h, 'a')):
+            h.a.extract()#remove a tag
+        if(h.parent and h.parent.name == 'li'):
+            h.parent.unwrap() #remove li tag
+        if(h.parent and h.parent.name == 'ul'):
+            h.parent.unwrap() #remove ul tag
     return soup
 def open_docx(f_name):
     xhtml = mammoth.convert_to_html(open(f_name, 'rb')).value.encode('us-ascii','xmlcharrefreplace').decode('utf-8')
@@ -153,10 +218,15 @@ def open_docx(f_name):
     #soup.prettify()
     return soup
 def open_file_as_xhtml(f_name):
+    """
+    Opens file and converts it and returns a BeautifulSoup
+    object which can be used to get xhtml
+    """
     ext = os.path.splitext(f_name)[-1].lower()
+    soup = ''
     if(ext == '.docx'):
-        return open_docx(f_name)
+        soup = open_docx(f_name)
     elif(ext == '.odt'):
-        return open_odt(f_name)
-    else:
-        return ''
+        soup = open_odt(f_name)
+    print(soup)
+    return soup

@@ -1,6 +1,6 @@
 import os, sys, re, json, mammoth
 from ebooklib import epub
-from parsing_libraries2 import process_html, process_html_with_blockquotes, split_chapters, get_title_from_html, slugify, blacklist, whitelist, restore_footers, get_footer_file_name
+from parsing_libraries import process_html, process_html_with_blockquotes, split_chapters, get_title_from_html, slugify, blacklist, whitelist, restore_footers, get_footer_file_name
 from standard_open_files_as_html import open_file_as_xhtml
 
 def safe_read_file(f):
@@ -37,8 +37,10 @@ def process_cmdline():
         raise Exception("Error: Too many arguments on command line. Expected one and only one input file") #maybe someday we'll make multiple files at once, but not today!
     return args[0]
 
-DATA_FILE = process_cmdline()
-json_data = json.load(open(DATA_FILE, 'r')) #everything we need should be in here
+data_file = process_cmdline()
+json_data = json.load(open(data_file, 'r')) #everything we need should be in the json file
+#change directory to where the json file is because the data will be relative to there
+os.chdir(os.path.dirname(data_file))
 
 book = epub.EpubBook()
 
