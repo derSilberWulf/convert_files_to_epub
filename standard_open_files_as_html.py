@@ -224,5 +224,15 @@ def open_file_as_xhtml(f_name):
         soup = open_docx(f_name)
     elif(ext == '.odt'):
         soup = open_odt(f_name)
-    print(soup)
+    #this stuff only really happening in odt as far as I can tell, but
+    #doesn't hurt to run it on both
+    #spans are useless because all formatting is gone, so we remove
+    for span in soup.find_all('span'):
+        span.unwrap()
+    #empty p tags are not very helpful and they are appearing at the end of some documents
+    for p in soup.find_all('p'):
+        #print(p.contents)
+        if(not p.contents):
+            p.unwrap()#if it's empty we could just extract but let us be safe instead
+    #print(soup)
     return soup
