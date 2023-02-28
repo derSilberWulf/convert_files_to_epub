@@ -186,6 +186,8 @@ def restore_footers():
     Returns collected footnotes as an html text
     TODO: switch to fn tags and/or dl and dt, which will require replacing ol and li tags
     """
+    if(len(FOOTERS) <= 0):
+        return None
     footer_html = footers_to_html(FOOTERS)
     soup = str(BeautifulSoup(footer_html, HTML_PARSER))
     return footer_html

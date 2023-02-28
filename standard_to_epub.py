@@ -105,7 +105,7 @@ def create_html_item(entry):
         intro_epub.add_link(href="style/" + css, rel="stylesheet", type="text/css")
     return intro_epub
 
-if(footer_html is not None):
+if(footer_html):
     footer_epub = epub.EpubHtml(title='footnotes', file_name=get_footer_file_name(), lang='en')
     footer_epub.content = footer_html
     book.add_item(footer_epub)
