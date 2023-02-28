@@ -9,6 +9,9 @@ import mammoth
 import os, sys
 from parsing_libraries import HTML_PARSER
 class SimpleODF2XHTML(ODF2XHTML):
+    """
+    Modifying ODF2XHTML so that it doesn't keep any css and also need to change the way it does a few things
+    """
     def __init__(self, generate_css=False, embedable=False):
         super().__init__(generate_css, embedable)
         self.elements[(TEXTNS, 'deletion')] = (self.s_ignorexml, None)
@@ -17,18 +20,14 @@ class SimpleODF2XHTML(ODF2XHTML):
     def e_text_note_body(self, tag, attrs):
         """
         Hacked to make it not write out the opening and closing p tag
+        Note: multi-paragraph footnotes not currently supported, and will be forced
+        to one paragraph.
         """
         self._wfunc = self._orgwfunc
         #my code
-        self.notebody.remove('</p>')
-        self.notebody.remove('<p>')
-        try:
-            self.notebody.remove('<span>')
-            self.notebody.remove('</span>')
-        except ValueError as ve:
-            pass #it seems these useless spans are only in there if its converted from docx
-            #print(ve)
-            #print(self.notebody)
+        #remove p tags because we need to put stuff before ending p tag
+        #useless spans are occasionally in there too, seems to happen in files converted from docx
+        self.notebody = [i for i in self.notebody if i not in ['<p>', '</p>', '<span>', '</span>']]
         #end my code
         self.notedict[self.currentnote]['body'] = ''.join(self.notebody)
         self.notebody = ''
@@ -96,13 +95,10 @@ class SimpleODF2XHTML(ODF2XHTML):
         is_italic = False
         c = attrs.get( (TEXTNS,'style-name'), None)
         if c:
+            font_weight, font_style = self.get_font_weight_and_style(c, '.S-')
             item_style = self.styledict.get('.S-%s' %  c, {})
-            font_style = item_style.get(('urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0', 'font-style'))
-            font_weight = item_style.get(('urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0', 'font-weight'))
             is_italic = font_style == 'italic'
             is_bold = font_weight == 'bold'
-            #print('font style: %s' % font_style)
-            #print('font weight: %s' % font_weight)
         if(is_bold and is_italic):
             self.opentag('strong', htmlattrs)#add extra tag
             tag = 'em'
@@ -129,9 +125,10 @@ class SimpleODF2XHTML(ODF2XHTML):
         is_italic = False
         c = attrs.get( (TEXTNS,'style-name'), None)
         if c:
-            item_style = self.styledict.get('.S-%s' %  c, {})
-            font_style = item_style.get(('urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0', 'font-style'))
-            font_weight = item_style.get(('urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0', 'font-weight'))
+            font_weight, font_style = self.get_font_weight_and_style(c, '.S-')
+            #item_style = self.styledict.get('.S-%s' %  c, {})
+            #font_style = item_style.get(('urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0', 'font-style'))
+            #font_weight = item_style.get(('urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0', 'font-weight'))
             is_italic = font_style == 'italic'
             is_bold = font_weight == 'bold'
         if(is_bold and is_italic):
@@ -147,6 +144,8 @@ class SimpleODF2XHTML(ODF2XHTML):
     def s_text_p(self, tag, attrs):
         """ have to look for bold and italic because 
         some p tags might just have that in the css, which we're throwing away
+        Note: might be possible to have original s_text_p called in middle so that all this
+        code doesn't have to be copied.
         """
         htmlattrs = {}
         #print(attrs)
@@ -189,10 +188,7 @@ class SimpleODF2XHTML(ODF2XHTML):
         self.purgedata()
     def get_font_weight_and_style(self, style_name, prefix):
         c = style_name
-        #.S-
-        #print(self.styledict)
         item_style = self.styledict.get(prefix +  c, {})
-        #print(self.styledict.keys())
         font_style = item_style.get(('urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0', 'font-style'))
         font_weight = item_style.get(('urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0', 'font-weight'))
         return font_weight, font_style
